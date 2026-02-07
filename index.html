@@ -146,12 +146,13 @@
                     // Estrai codice configurazione dal messaggio
                     let configCode = null;
                     
-                    if (event.data.configCode) {
+                    // Alessandro invia: {"code-configuration": "chiave_configurazione"}
+                    if (event.data["code-configuration"]) {
+                        configCode = event.data["code-configuration"];
+                    } else if (event.data.configCode) {
                         configCode = event.data.configCode;
                     } else if (event.data.data && event.data.data.configCode) {
                         configCode = event.data.data.configCode;
-                    } else if (event.data.data && event.data.data.code) {
-                        configCode = event.data.data.code;
                     }
                     
                     if (!configCode) {
