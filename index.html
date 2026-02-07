@@ -6,28 +6,151 @@
     <title>Configuratore Prodotto</title>
     <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            box-sizing: border-box;
         }
         
-        #loading {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            flex-direction: column;
-            background: #f5f5f5;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
         }
         
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #0078D4;
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            background: #0078D4;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .btn:hover {
+            background: #005a9e;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,120,212,0.3);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn.success {
+            background: #28a745;
+        }
+        
+        .btn.success:hover {
+            background: #218838;
+        }
+        
+        .info {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #0078D4;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #666;
+            text-align: left;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+            animation: slideIn 0.3s ease;
+            font-weight: 500;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0078D4;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
             animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
         }
         
         @keyframes spin {
@@ -35,108 +158,93 @@
             100% { transform: rotate(360deg); }
         }
         
-        #loading-text {
+        .quote-id {
+            font-size: 12px;
+            color: #999;
             margin-top: 20px;
-            color: #666;
-            font-size: 16px;
-        }
-        
-        #configurator-frame {
-            width: 100%;
-            height: 100vh;
-            border: none;
-            display: none;
-        }
-        
-        #error {
-            display: none;
-            padding: 40px;
-            text-align: center;
-            color: #d32f2f;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
-    <div id="loading">
-        <div class="spinner"></div>
-        <p id="loading-text">Caricamento configuratore...</p>
-    </div>
-    
-    <iframe id="configurator-frame"></iframe>
-    
-    <div id="error">
-        <h3>❌ Errore</h3>
-        <p id="error-message"></p>
+    <div class="container">
+        <div class="icon">🎨</div>
+        <h2>Configuratore Prodotto</h2>
+        <p>Apri il configuratore per selezionare e personalizzare i tuoi prodotti.</p>
+        
+        <button id="btn-open" class="btn" disabled>
+            <span>Caricamento...</span>
+            <span class="loader"></span>
+        </button>
+        
+        <button id="btn-check" class="btn success" style="display:none;">
+            🔄 Verifica Importazione
+        </button>
+        
+        <div class="info">
+            <strong>ℹ️ Come funziona:</strong><br>
+            1️⃣ Clicca "Apri Configuratore"<br>
+            2️⃣ Si aprirà una nuova finestra<br>
+            3️⃣ Configura i tuoi prodotti<br>
+            4️⃣ I dati verranno importati automaticamente
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="quote-id" id="quote-info"></div>
     </div>
 
     <script>
-        console.log("🔷 Widget iniziato");
+        console.log("🔷 Widget POPUP iniziato");
         
         let quoteId = null;
-        let isInitialized = false;
-        
-        function updateLoading(text) {
-            const loadingText = document.getElementById('loading-text');
-            if (loadingText) {
-                loadingText.textContent = text;
-            }
-            console.log("📝 " + text);
-        }
-        
-        function showError(message) {
-            console.error("❌ " + message);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error-message').textContent = message;
-        }
-        
-        if (typeof ZOHO === 'undefined') {
-            showError('ZOHO SDK non caricato. Verifica la connessione.');
-            throw new Error('ZOHO SDK non disponibile');
-        }
-        
-        console.log("✅ ZOHO SDK caricato");
-        updateLoading("Inizializzazione Zoho SDK...");
-        
+        let configuratorWindow = null;
+        let checkInterval = null;
+        let lastCheck = null;
+
         ZOHO.embeddedApp.on("PageLoad", function(data) {
             console.log("🎉 PageLoad evento ricevuto:", data);
             
-            if (isInitialized) {
-                console.log("⚠️ Già inizializzato");
+            // Estrai l'intero Quote ID
+            if (data.EntityId) {
+                if (Array.isArray(data.EntityId)) {
+                    quoteId = data.EntityId[0];
+                } else {
+                    quoteId = data.EntityId;
+                }
+            }
+            
+            if (!quoteId) {
+                showStatus('error', '❌ Impossibile ottenere ID offerta');
                 return;
             }
             
-            isInitialized = true;
-            initWidget(data);
+            console.log("📋 Quote ID completo:", quoteId);
+            
+            // Mostra info offerta
+            document.getElementById('quote-info').textContent = `Offerta ID: ${quoteId}`;
+            
+            // Abilita pulsante
+            const btnOpen = document.getElementById('btn-open');
+            btnOpen.disabled = false;
+            btnOpen.innerHTML = '🚀 Apri Configuratore';
         });
-        
-        console.log("🚀 Chiamata init()");
+
         ZOHO.embeddedApp.init();
-        
-        setTimeout(function() {
-            if (!isInitialized) {
-                showError("Timeout: il widget non si è inizializzato. Ricarica la pagina.");
-            }
-        }, 10000);
-        
-        async function initWidget(data) {
+
+        // Click apertura configuratore
+        document.getElementById('btn-open').addEventListener('click', async function() {
+            const btn = this;
+            btn.disabled = true;
+            
             try {
-                updateLoading("Recupero dati offerta...");
-                
-                if (!data.EntityId || !data.EntityId[0]) {
-                    throw new Error("ID offerta non trovato");
-                }
-                
-                quoteId = data.EntityId[0];
-                console.log("📋 Quote ID:", quoteId);
-                
-                updateLoading("Generazione token...");
+                showStatus('info', '⏳ Preparazione configuratore in corso...');
                 
                 const token = "CRM" + quoteId;
-                console.log("🔑 Token:", token);
+                console.log("🔑 Token generato:", token);
                 
+                // Salva token nell'offerta
                 try {
-                    updateLoading("Salvataggio token...");
                     await ZOHO.CRM.API.updateRecord({
                         Entity: "Quotes",
                         APIData: {
@@ -146,44 +254,128 @@
                         },
                         Trigger: ["workflow"]
                     });
-                    console.log("💾 Token salvato");
+                    console.log("💾 Token salvato in Zoho CRM");
                 } catch (updateError) {
                     console.warn("⚠️ Errore salvataggio token:", updateError);
                 }
                 
-                updateLoading("Caricamento configuratore...");
+                // Costruisci URL configuratore
+                const url = `https://panta.orizzontiweb.it/ricerca-prodotti?token=${quoteId}&source=agente`;
+                console.log("🌐 Apertura URL in POPUP:", url);
                 
-                const configuratorUrl = `https://panta.orizzontiweb.it/ricerca-prodotti?token=${quoteId}&source=agente`;
-                console.log("🌐 URL:", configuratorUrl);
+                // Apri in POPUP (nuova finestra)
+                configuratorWindow = window.open(
+                    url, 
+                    'Configuratore_Panta',
+                    'width=1400,height=900,toolbar=no,menubar=no,location=yes,resizable=yes,scrollbars=yes,status=yes'
+                );
                 
-                const iframe = document.getElementById('configurator-frame');
+                if (!configuratorWindow || configuratorWindow.closed || typeof configuratorWindow.closed == 'undefined') {
+                    throw new Error('⚠️ Popup bloccato dal browser. Abilita i popup per questo sito nelle impostazioni del browser.');
+                }
                 
-                iframe.addEventListener('load', function() {
-                    console.log("✅ Iframe caricato");
-                    document.getElementById('loading').style.display = 'none';
-                    iframe.style.display = 'block';
-                });
+                showStatus('success', '✅ Configuratore aperto in nuova finestra! Completa la configurazione, poi clicca "Verifica Importazione".');
                 
-                iframe.addEventListener('error', function(e) {
-                    console.error("❌ Errore iframe:", e);
-                    showError("Impossibile caricare il configuratore");
-                });
+                // Mostra pulsante verifica
+                document.getElementById('btn-check').style.display = 'block';
                 
-                iframe.src = configuratorUrl;
+                // Avvia controllo automatico
+                startAutoCheck();
                 
-                setTimeout(function() {
-                    if (document.getElementById('loading').style.display !== 'none') {
-                        console.log("✅ Iframe caricato (fallback)");
-                        document.getElementById('loading').style.display = 'none';
-                        iframe.style.display = 'block';
-                    }
-                }, 3000);
+                btn.innerHTML = '✅ Configuratore Aperto';
                 
             } catch (error) {
                 console.error("❌ Errore:", error);
-                showError("Errore: " + error.message);
+                showStatus('error', `❌ ${error.message}`);
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Apri Configuratore';
+            }
+        });
+
+        // Click verifica manuale
+        document.getElementById('btn-check').addEventListener('click', async function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Verifica in corso...';
+            btn.disabled = true;
+            
+            await checkImport(true);
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 1000);
+        });
+
+        // Funzione verifica importazione
+        async function checkImport(manual = false) {
+            try {
+                const record = await ZOHO.CRM.API.getRecord({
+                    Entity: "Quotes",
+                    RecordID: quoteId
+                });
+
+                const lastImport = record.data[0].Last_Config_Import__c;
+                
+                console.log("🔍 Verifica import:", {lastImport, lastCheck});
+                
+                // Se c'è un nuovo import
+                if (lastImport && lastImport !== lastCheck) {
+                    console.log("✅ Nuovo import rilevato!");
+                    
+                    lastCheck = lastImport;
+                    
+                    showStatus('success', '🎉 Configurazione importata con successo! Chiusura automatica...');
+                    
+                    stopAutoCheck();
+                    
+                    // Chiudi widget e ricarica offerta
+                    setTimeout(() => {
+                        ZOHO.CRM.UI.Popup.close().then(() => {
+                            ZOHO.CRM.UI.Record.reload();
+                        });
+                    }, 2000);
+                    
+                } else if (manual) {
+                    showStatus('info', '⏳ Nessuna nuova importazione rilevata. Assicurati di aver completato e confermato la configurazione.');
+                }
+                
+            } catch (error) {
+                console.error("❌ Errore verifica:", error);
+                if (manual) {
+                    showStatus('error', `❌ Errore durante la verifica: ${error.message}`);
+                }
             }
         }
+
+        // Controllo automatico ogni 5 secondi
+        function startAutoCheck() {
+            console.log("🔄 Avvio controllo automatico (ogni 5 secondi)");
+            checkInterval = setInterval(() => {
+                console.log("🔄 Controllo automatico...");
+                checkImport(false);
+            }, 5000);
+        }
+
+        function stopAutoCheck() {
+            if (checkInterval) {
+                console.log("⏹️ Stop controllo automatico");
+                clearInterval(checkInterval);
+                checkInterval = null;
+            }
+        }
+
+        // Mostra messaggio status
+        function showStatus(type, message) {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+
+        // Cleanup quando si chiude il widget
+        window.addEventListener('beforeunload', () => {
+            stopAutoCheck();
+        });
     </script>
 </body>
 </html>
