@@ -61,6 +61,14 @@
             text-align: center;
             color: #28a745;
             background: #d4edda;
+            height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        #success h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -74,8 +82,9 @@
     
     <div id="success">
         <h2>✅ Configurazione Completata!</h2>
-        <p id="success-message"></p>
-        <p>Importazione dati in corso...</p>
+        <p id="success-message" style="font-size: 18px; margin: 20px 0;"></p>
+        <p style="font-size: 16px;">Importazione dati in corso...</p>
+        <p style="font-size: 14px; color: #666; margin-top: 20px;">Chiusura automatica tra pochi secondi</p>
     </div>
     
     <div id="error">
@@ -84,7 +93,7 @@
     </div>
 
     <script>
-        console.log("🔷 Widget Zoho con postMessage iniziato");
+        console.log("🔷 Widget Zoho - Versione postMessage");
         
         let quoteId = null;
         let isProcessing = false;
@@ -106,10 +115,10 @@
         }
         
         function showSuccess(configCode) {
-            console.log("✅ Configurazione completata:", configCode);
+            console.log("🎉 Configurazione completata:", configCode);
             document.getElementById('loading').style.display = 'none';
             document.getElementById('configurator-frame').style.display = 'none';
-            document.getElementById('success').style.display = 'block';
+            document.getElementById('success').style.display = 'flex';
             document.getElementById('success-message').textContent = 
                 `Codice configurazione: ${configCode}`;
         }
@@ -119,78 +128,68 @@
         // ========================================
         window.addEventListener("message", async function(event) {
             
-            // ⚠️ IMPORTANTE: Verifica origine (sostituisci con dominio reale)
-            // In produzione usa: if (event.origin !== "https://panta.orizzontiweb.it") return;
             console.log("📨 Messaggio ricevuto da:", event.origin);
-            console.log("📦 Dati messaggio:", event.data);
+            console.log("📦 Dati completi:", event.data);
             
-            // Controlla se è il messaggio che ci interessa
-            if (!event.data || !event.data.tipo) {
-                console.log("⚠️ Messaggio senza tipo, ignorato");
+            // Verifica che ci sia un messaggio
+            if (!event.data) {
+                console.log("⚠️ Messaggio vuoto, ignorato");
                 return;
             }
             
-            // Se è il messaggio di configurazione completata
-            if (event.data.tipo === "configurazioneCompletata" || 
-                event.data.tipo === "domChange" ||
-                event.data.tipo === "carrelloAggiornato") {
+            // Cerca il codice configurazione nel formato di Alessandro
+            let configCode = null;
+            
+            if (event.data["code-configuration"]) {
+                configCode = event.data["code-configuration"];
+                console.log("✅ Codice trovato in 'code-configuration':", configCode);
+            }
+            
+            if (!configCode) {
+                console.log("⚠️ Codice configurazione non trovato nel messaggio");
+                return;
+            }
+            
+            if (isProcessing) {
+                console.log("⚠️ Già in elaborazione, skip");
+                return;
+            }
+            
+            isProcessing = true;
+            
+            try {
+                console.log("🔑 Codice configurazione ricevuto:", configCode);
                 
-                if (isProcessing) {
-                    console.log("⚠️ Già in elaborazione, skip");
-                    return;
-                }
+                showSuccess(configCode);
                 
-                isProcessing = true;
+                // Aggiorna Zoho con codice configurazione
+                console.log("💾 Aggiornamento Zoho CRM...");
                 
-                try {
-                    // Estrai codice configurazione dal messaggio
-                    let configCode = null;
-                    
-                    // Alessandro invia: {"code-configuration": "chiave_configurazione"}
-                    if (event.data["code-configuration"]) {
-                        configCode = event.data["code-configuration"];
-                    } else if (event.data.configCode) {
-                        configCode = event.data.configCode;
-                    } else if (event.data.data && event.data.data.configCode) {
-                        configCode = event.data.data.configCode;
-                    }
-                    
-                    if (!configCode) {
-                        console.error("❌ Codice configurazione non trovato nel messaggio");
-                        return;
-                    }
-                    
-                    console.log("🔑 Codice configurazione ricevuto:", configCode);
-                    
-                    showSuccess(configCode);
-                    
-                    // Aggiorna Zoho con codice configurazione
-                    console.log("💾 Aggiornamento Zoho CRM...");
-                    
-                    await ZOHO.CRM.API.updateRecord({
-                        Entity: "Quotes",
-                        APIData: {
-                            "id": quoteId,
-                            "Pending_Config_Code__c": configCode,
-                            "Last_Config_Import__c": new Date().toISOString()
-                        },
-                        Trigger: ["workflow"]
+                await ZOHO.CRM.API.updateRecord({
+                    Entity: "Quotes",
+                    APIData: {
+                        "id": quoteId,
+                        "Pending_Config_Code__c": configCode,
+                        "Last_Config_Import__c": new Date().toISOString()
+                    },
+                    Trigger: ["workflow"]
+                });
+                
+                console.log("✅ Zoho aggiornato con codice:", configCode);
+                console.log("⏳ Il workflow Zoho importerà automaticamente i dati...");
+                
+                // Chiudi widget dopo 3 secondi
+                setTimeout(() => {
+                    console.log("🔄 Chiusura widget e reload offerta...");
+                    ZOHO.CRM.UI.Popup.close().then(() => {
+                        ZOHO.CRM.UI.Record.reload();
                     });
-                    
-                    console.log("✅ Zoho aggiornato, il workflow importerà i dati");
-                    
-                    // Chiudi widget dopo 3 secondi
-                    setTimeout(() => {
-                        ZOHO.CRM.UI.Popup.close().then(() => {
-                            ZOHO.CRM.UI.Record.reload();
-                        });
-                    }, 3000);
-                    
-                } catch (error) {
-                    console.error("❌ Errore elaborazione messaggio:", error);
-                    showError("Errore durante il salvataggio: " + error.message);
-                    isProcessing = false;
-                }
+                }, 3000);
+                
+            } catch (error) {
+                console.error("❌ Errore elaborazione:", error);
+                showError("Errore durante il salvataggio: " + error.message);
+                isProcessing = false;
             }
         });
         
@@ -227,7 +226,7 @@
             initWidget();
         });
         
-        console.log("🚀 Chiamata init()");
+        console.log("🚀 Chiamata ZOHO.embeddedApp.init()");
         ZOHO.embeddedApp.init();
         
         setTimeout(function() {
@@ -256,21 +255,20 @@
                         },
                         Trigger: ["workflow"]
                     });
-                    console.log("💾 Token salvato");
+                    console.log("💾 Token salvato in Zoho");
                 } catch (updateError) {
                     console.warn("⚠️ Errore salvataggio token:", updateError);
                 }
                 
                 updateLoading("Caricamento configuratore...");
                 
-                // URL con parametro source=zoho per identificare la provenienza
-                const configuratorUrl = `https://panta.orizzontiweb.it/ricerca-prodotti?token=${quoteId}&source=zoho`;
-                console.log("🌐 URL:", configuratorUrl);
+                const configuratorUrl = `https://panta.orizzontiweb.it/ricerca-prodotti?token=${quoteId}`;
+                console.log("🌐 URL configuratore:", configuratorUrl);
                 
                 const iframe = document.getElementById('configurator-frame');
                 
                 iframe.addEventListener('load', function() {
-                    console.log("✅ Iframe caricato");
+                    console.log("✅ Configuratore caricato in iframe");
                     document.getElementById('loading').style.display = 'none';
                     iframe.style.display = 'block';
                 });
@@ -279,14 +277,14 @@
                 
                 setTimeout(function() {
                     if (document.getElementById('loading').style.display !== 'none') {
-                        console.log("✅ Iframe caricato (fallback)");
+                        console.log("✅ Iframe caricato (fallback timeout)");
                         document.getElementById('loading').style.display = 'none';
                         iframe.style.display = 'block';
                     }
                 }, 3000);
                 
             } catch (error) {
-                console.error("❌ Errore:", error);
+                console.error("❌ Errore inizializzazione:", error);
                 showError("Errore: " + error.message);
             }
         }
