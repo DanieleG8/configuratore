@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifica Configurazione</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        #configuratore-frame {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+            color: #666;
+            display: none;
+        }
+        
+        #error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">⏳ Caricamento configurazione...</div>
+    <div id="error"></div>
+    <iframe id="configuratore-frame"></iframe>
+
+    <script>
+        // Inizializza Zoho
+        let ZOHO_INITIALIZED = false;
+        let QUOTE_ID = null;
+        let CONFIG_CODE = null;
+        let TOKEN = null;
+        
+        // Leggi parametri URL
+        const urlParams = new URLSearchParams(window.location.search);
+        CONFIG_CODE = urlParams.get('code');
+        TOKEN = urlParams.get('token');
+        QUOTE_ID = urlParams.get('quote');
+        
+        // Valida parametri
+        if (!CONFIG_CODE || !TOKEN || !QUOTE_ID) {
+            showError("Parametri mancanti. Richiesti: code, token, quote");
+        }
+        
+        // Inizializza Zoho
+        ZOHO.embeddedApp.on("PageLoad", function(data) {
+            console.log("Widget caricato", data);
+            ZOHO_INITIALIZED = true;
+            
+            // Apri configuratore
+            apriConfiguratore();
+        });
+        
+        ZOHO.embeddedApp.init();
+        
+        // Apri configuratore in modalità edit
+        function apriConfiguratore() {
+            document.getElementById('loading').style.display = 'block';
+            
+            const iframe = document.getElementById('configuratore-frame');
+            const url = `https://panta.orizzontiweb.it/ricerca-prodotti?edit=${CONFIG_CODE}&quote=${QUOTE_ID}`;
+            
+            console.log("Apertura configuratore:", url);
+            iframe.src = url;
+            
+            // Nascondi loading dopo 2 secondi
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 2000);
+        }
+        
+        // Ascolta messaggi dal configuratore
+        window.addEventListener("message", function(event) {
+            // Verifica origine
+            if (event.origin !== "https://panta.orizzontiweb.it") {
+                console.warn("Messaggio da origine non autorizzata:", event.origin);
+                return;
+            }
+            
+            console.log("Messaggio ricevuto:", event.data);
+            
+            // Verifica presenza codice configurazione
+            if (event.data && event.data["code-configuration"]) {
+                const codiceConfig = event.data["code-configuration"];
+                console.log("Codice configurazione ricevuto:", codiceConfig);
+                
+                // Aggiorna Zoho
+                aggiornaOffertaZoho(codiceConfig);
+            }
+        });
+        
+        // Aggiorna offerta in Zoho
+        function aggiornaOffertaZoho(codiceConfig) {
+            if (!ZOHO_INITIALIZED) {
+                console.error("Zoho non inizializzato");
+                return;
+            }
+            
+            console.log("Aggiornamento offerta Zoho con codice:", codiceConfig);
+            
+            const updateData = {
+                "Codice_Config_da_Importare": codiceConfig,
+                "Ultima_Azione_Config": codiceConfig
+            };
+            
+            ZOHO.CRM.API.updateRecord({
+                Entity: "Quotes",
+                APIData: updateData,
+                RecordID: QUOTE_ID
+            }).then(function(response) {
+                console.log("Offerta aggiornata:", response);
+                
+                // Chiudi widget
+                ZOHO.CRM.UI.Popup.close().then(function() {
+                    console.log("Popup chiuso");
+                });
+            }).catch(function(error) {
+                console.error("Errore aggiornamento offerta:", error);
+                showError("Errore nell'aggiornamento dell'offerta");
+            });
+        }
+        
+        // Mostra errore
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
