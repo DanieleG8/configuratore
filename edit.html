@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modifica Prodotto</title>
+    <title>Modifica Prodotto - Debug</title>
     <style>
         body {
             margin: 0;
@@ -12,24 +12,11 @@
             background: #f5f5f5;
         }
         
-        #configuratore-frame {
-            width: 100%;
-            height: calc(100vh - 40px);
-            border: none;
-            display: none;
-        }
-        
         #debug {
             background: white;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
-        }
-        
-        #loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
         }
         
         #error {
@@ -58,198 +45,215 @@
             padding: 10px;
             border-radius: 4px;
             overflow-x: auto;
-            font-size: 12px;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        
+        button:hover {
+            background: #005a9e;
         }
     </style>
 </head>
 <body>
     <div id="debug">
-        <h2>🔍 Debug Info</h2>
-        <div id="debug-content" class="loading">⏳ Caricamento dati...</div>
+        <h2>🔍 Debug Mode - Analisi Righe</h2>
+        <div id="debug-content" class="loading">⏳ Caricamento dati offerta...</div>
     </div>
     
     <div id="error" style="display: none;"></div>
-    <iframe id="configuratore-frame"></iframe>
+    
+    <div id="actions" style="display: none;">
+        <button onclick="procediComunque()">Procedi con prima riga</button>
+        <button onclick="window.close()">Chiudi</button>
+    </div>
 
     <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
     <script>
         let ZOHO_INITIALIZED = false;
         let QUOTE_ID = null;
-        let CONFIG_CODE = null;
-        let PRODUCT_CODE = null;
+        let QUOTE_DATA = null;
         
         // Inizializza Zoho
         ZOHO.embeddedApp.on("PageLoad", function(data) {
-            console.log("Widget caricato", data);
+            console.log("✅ Widget caricato", data);
             ZOHO_INITIALIZED = true;
             QUOTE_ID = data.EntityId;
             
-            // Carica dati e mostra debug
-            loadQuoteAndDebug();
+            document.getElementById('debug-content').innerHTML = 
+                '<p>✅ Zoho inizializzato<br>Entity: ' + data.Entity + '<br>Quote ID: ' + QUOTE_ID + '</p>';
+            
+            // Carica dati
+            loadQuoteData();
         });
         
         ZOHO.embeddedApp.init();
         
-        // Carica offerta e mostra debug
-        function loadQuoteAndDebug() {
+        // Carica dati offerta
+        function loadQuoteData() {
+            document.getElementById('debug-content').innerHTML += '<p>📡 Chiamata API in corso...</p>';
+            
             ZOHO.CRM.API.getRecord({
                 Entity: "Quotes",
                 RecordID: QUOTE_ID
             }).then(function(response) {
-                console.log("Dati offerta:", response);
+                console.log("✅ Risposta API:", response);
                 
-                if (response.data && response.data.length > 0) {
-                    const quote = response.data[0];
-                    const productDetails = quote.Product_Details || [];
-                    
-                    // Mostra debug
-                    showDebugInfo(productDetails);
-                    
-                    // Trova riga con Modifica=true
-                    const rigaDaModificare = findRigaModifica(productDetails);
-                    
-                    if (!rigaDaModificare) {
-                        showError("❌ Nessuna riga selezionata per la modifica. Seleziona una riga e riprova.");
-                        return;
-                    }
-                    
-                    PRODUCT_CODE = rigaDaModificare.Cod_Art_Forn;
-                    CONFIG_CODE = rigaDaModificare.Codice_Configurazione;
-                    
-                    if (!PRODUCT_CODE) {
-                        showError("❌ Codice articolo mancante sulla riga selezionata");
-                        return;
-                    }
-                    
-                    // Nascondi debug e apri configuratore
-                    document.getElementById('debug').style.display = 'none';
-                    apriConfiguratore();
+                document.getElementById('debug-content').innerHTML += '<p>✅ API risposta ricevuta</p>';
+                
+                if (!response.data || response.data.length === 0) {
+                    showError("❌ Nessun dato nell'offerta");
+                    document.getElementById('debug-content').innerHTML += '<pre>' + JSON.stringify(response, null, 2) + '</pre>';
+                    return;
                 }
+                
+                const quote = response.data[0];
+                QUOTE_DATA = quote;
+                
+                // Mostra debug completo
+                showFullDebug(quote);
+                
             }).catch(function(error) {
-                console.error("Errore:", error);
-                showError("Errore nel caricamento dell'offerta: " + error);
+                console.error("❌ Errore API:", error);
+                showError("Errore caricamento: " + JSON.stringify(error));
+                document.getElementById('debug-content').innerHTML += '<pre>' + JSON.stringify(error, null, 2) + '</pre>';
             });
         }
         
-        // Mostra info debug
-        function showDebugInfo(productDetails) {
-            const debugContent = document.getElementById('debug-content');
+        // Mostra debug completo
+        function showFullDebug(quote) {
+            let html = '<h3>📋 Dati Offerta</h3>';
+            html += '<p><strong>Subject:</strong> ' + (quote.Subject || 'N/A') + '</p>';
+            html += '<p><strong>Quote Number:</strong> ' + (quote.Quote_Number || 'N/A') + '</p>';
             
-            if (productDetails.length === 0) {
-                debugContent.innerHTML = '<p>Nessuna riga trovata nell\'offerta</p>';
+            // Product_Details
+            const productDetails = quote.Product_Details;
+            
+            html += '<hr><h3>📦 Product_Details</h3>';
+            
+            if (!productDetails) {
+                html += '<p style="color: red;">❌ Campo "Product_Details" non presente!</p>';
+                html += '<p>Campi disponibili nell\'offerta:</p>';
+                html += '<pre>' + Object.keys(quote).join('\n') + '</pre>';
+                document.getElementById('debug-content').innerHTML = html;
+                showError("Campo Product_Details non trovato");
                 return;
             }
             
-            let html = '<h3>Righe trovate: ' + productDetails.length + '</h3>';
+            if (!Array.isArray(productDetails)) {
+                html += '<p style="color: red;">❌ Product_Details non è un array!</p>';
+                html += '<pre>Tipo: ' + typeof productDetails + '\nValore: ' + JSON.stringify(productDetails, null, 2) + '</pre>';
+                document.getElementById('debug-content').innerHTML = html;
+                showError("Product_Details formato non valido");
+                return;
+            }
             
+            if (productDetails.length === 0) {
+                html += '<p style="color: orange;">⚠️ Nessuna riga presente nell\'offerta</p>';
+                document.getElementById('debug-content').innerHTML = html;
+                showError("Offerta vuota - nessuna riga da modificare");
+                return;
+            }
+            
+            html += '<p><strong>Numero righe:</strong> ' + productDetails.length + '</p>';
+            html += '<hr>';
+            
+            // Analizza ogni riga
+            let rigaTrovata = false;
             productDetails.forEach((item, index) => {
-                const hasModifica = hasKey(item, 'Modifica');
                 const modificaValue = item.Modifica;
-                const modificaType = typeof modificaValue;
                 const isSelected = checkModificaValue(modificaValue);
+                
+                if (isSelected) rigaTrovata = true;
                 
                 const cssClass = isSelected ? 'riga-debug selected' : 'riga-debug';
                 
                 html += '<div class="' + cssClass + '">';
-                html += '<strong>Riga ' + (index + 1) + '</strong><br>';
-                html += 'Prodotto: ' + (item.product_description || item.Product_Name || 'N/A') + '<br>';
-                html += 'Cod_Art_Forn: ' + (item.Cod_Art_Forn || 'N/A') + '<br>';
-                html += 'Campo "Modifica" presente: ' + (hasModifica ? 'SÌ' : 'NO') + '<br>';
-                html += 'Valore "Modifica": ' + JSON.stringify(modificaValue) + '<br>';
-                html += 'Tipo dato: ' + modificaType + '<br>';
-                html += 'Valutato come TRUE: ' + (isSelected ? 'SÌ ✅' : 'NO') + '<br>';
-                html += '<details><summary>JSON completo</summary><pre>' + JSON.stringify(item, null, 2) + '</pre></details>';
+                html += '<h4>Riga #' + (index + 1) + (isSelected ? ' ✅ SELEZIONATA' : '') + '</h4>';
+                
+                // Info principali
+                html += '<p><strong>Prodotto:</strong> ' + (item.product_description || 'N/A') + '</p>';
+                html += '<p><strong>Cod_Art_Forn:</strong> ' + (item.Cod_Art_Forn || 'N/A') + '</p>';
+                html += '<p><strong>Codice_Configurazione:</strong> ' + (item.Codice_Configurazione || 'N/A') + '</p>';
+                
+                // Campo Modifica
+                html += '<hr style="margin: 10px 0;">';
+                html += '<p><strong>Campo "Modifica":</strong></p>';
+                html += '<ul style="margin: 5px 0; padding-left: 20px;">';
+                html += '<li>Presente: ' + (item.hasOwnProperty('Modifica') ? 'SÌ' : 'NO') + '</li>';
+                html += '<li>Valore: <code>' + JSON.stringify(modificaValue) + '</code></li>';
+                html += '<li>Tipo: <code>' + typeof modificaValue + '</code></li>';
+                html += '<li>Valutato come TRUE: ' + (isSelected ? 'SÌ ✅' : 'NO ❌') + '</li>';
+                html += '</ul>';
+                
+                // JSON completo (collassabile)
+                html += '<details><summary>🔍 JSON completo</summary><pre>' + JSON.stringify(item, null, 2) + '</pre></details>';
                 html += '</div>';
             });
             
-            debugContent.innerHTML = html;
+            html += '<hr><h3>📊 Riepilogo</h3>';
+            html += '<p><strong>Righe con Modifica=true:</strong> ' + (rigaTrovata ? 'SÌ ✅' : 'NO ❌') + '</p>';
+            
+            document.getElementById('debug-content').innerHTML = html;
+            
+            if (!rigaTrovata) {
+                showError("❌ Nessuna riga ha il flag Modifica=true. Seleziona una riga nell'offerta e riprova.");
+                document.getElementById('actions').style.display = 'block';
+            }
         }
         
-        // Verifica se campo esiste
-        function hasKey(obj, key) {
-            return obj.hasOwnProperty(key) || obj.hasOwnProperty(key.toLowerCase()) || obj.hasOwnProperty(key.toUpperCase());
-        }
-        
-        // Trova riga con Modifica=true (con tutti i possibili formati)
-        function findRigaModifica(productDetails) {
-            return productDetails.find(item => checkModificaValue(item.Modifica));
-        }
-        
-        // Controlla se il valore di Modifica è "true"
+        // Controlla valore Modifica
         function checkModificaValue(value) {
-            if (value === true || value === 'true' || value === 1 || value === '1') {
-                return true;
-            }
+            // Controlla tutti i possibili formati
+            if (value === true) return true;
+            if (value === 'true') return true;
+            if (value === 1) return true;
+            if (value === '1') return true;
+            if (value === 'True') return true;
+            if (value === 'TRUE') return true;
             return false;
-        }
-        
-        // Apri configuratore in modalità modifica
-        function apriConfiguratore() {
-            document.getElementById('configuratore-frame').style.display = 'block';
-            
-            const iframe = document.getElementById('configuratore-frame');
-            const url = `https://panta.orizzontiweb.it/product-configurator/${encodeURIComponent(PRODUCT_CODE)}?token=CRM${QUOTE_ID}&source=agente`;
-            
-            console.log("Apertura configuratore:", url);
-            iframe.src = url;
-        }
-        
-        // Ascolta messaggi dal configuratore
-        window.addEventListener("message", function(event) {
-            // Verifica origine
-            if (event.origin !== "https://panta.orizzontiweb.it") {
-                console.warn("Messaggio da origine non autorizzata:", event.origin);
-                return;
-            }
-            
-            console.log("Messaggio ricevuto:", event.data);
-            
-            // Verifica presenza codice configurazione
-            if (event.data && event.data["code-configuration"]) {
-                const codiceConfig = event.data["code-configuration"];
-                console.log("Codice configurazione ricevuto:", codiceConfig);
-                
-                // Aggiorna Zoho
-                aggiornaOffertaZoho(codiceConfig);
-            }
-        });
-        
-        // Aggiorna offerta in Zoho
-        function aggiornaOffertaZoho(codiceConfig) {
-            if (!ZOHO_INITIALIZED) {
-                console.error("Zoho non inizializzato");
-                return;
-            }
-            
-            console.log("Aggiornamento offerta Zoho con codice:", codiceConfig);
-            
-            const updateData = {
-                "Codice_Config_da_Importare": codiceConfig,
-                "Ultima_Azione_Config": codiceConfig
-            };
-            
-            ZOHO.CRM.API.updateRecord({
-                Entity: "Quotes",
-                APIData: updateData,
-                RecordID: QUOTE_ID
-            }).then(function(response) {
-                console.log("Offerta aggiornata:", response);
-                
-                // Chiudi widget
-                ZOHO.CRM.UI.Popup.close().then(function() {
-                    console.log("Popup chiuso");
-                });
-            }).catch(function(error) {
-                console.error("Errore aggiornamento offerta:", error);
-                showError("Errore nell'aggiornamento dell'offerta: " + error);
-            });
         }
         
         // Mostra errore
         function showError(message) {
             const errorDiv = document.getElementById('error');
-            errorDiv.textContent = message;
+            errorDiv.innerHTML = '<strong>⚠️ Attenzione:</strong><br>' + message;
             errorDiv.style.display = 'block';
+        }
+        
+        // Procedi comunque con prima riga
+        function procediComunque() {
+            if (!QUOTE_DATA || !QUOTE_DATA.Product_Details || QUOTE_DATA.Product_Details.length === 0) {
+                alert("Nessuna riga disponibile");
+                return;
+            }
+            
+            const primaRiga = QUOTE_DATA.Product_Details[0];
+            const codArt = primaRiga.Cod_Art_Forn;
+            
+            if (!codArt) {
+                alert("Prima riga non ha Cod_Art_Forn");
+                return;
+            }
+            
+            const url = `https://panta.orizzontiweb.it/product-configurator/${encodeURIComponent(codArt)}?token=CRM${QUOTE_ID}&source=agente`;
+            window.open(url, '_blank');
         }
     </script>
 </body>
