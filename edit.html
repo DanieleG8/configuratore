@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modifica Configurazione</title>
+    <title>Modifica Prodotto</title>
     <style>
         body {
             margin: 0;
@@ -24,7 +24,6 @@
             transform: translate(-50%, -50%);
             font-family: Arial, sans-serif;
             color: #666;
-            display: none;
         }
         
         #error {
@@ -43,45 +42,72 @@
     </style>
 </head>
 <body>
-    <div id="loading">⏳ Caricamento configurazione...</div>
+    <div id="loading">⏳ Caricamento configuratore...</div>
     <div id="error"></div>
     <iframe id="configuratore-frame"></iframe>
 
+    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
     <script>
-        // Inizializza Zoho
         let ZOHO_INITIALIZED = false;
         let QUOTE_ID = null;
         let CONFIG_CODE = null;
-        let TOKEN = null;
-        
-        // Leggi parametri URL
-        const urlParams = new URLSearchParams(window.location.search);
-        CONFIG_CODE = urlParams.get('code');
-        TOKEN = urlParams.get('token');
-        QUOTE_ID = urlParams.get('quote');
-        
-        // Valida parametri
-        if (!CONFIG_CODE || !TOKEN || !QUOTE_ID) {
-            showError("Parametri mancanti. Richiesti: code, token, quote");
-        }
+        let PRODUCT_CODE = null;
         
         // Inizializza Zoho
         ZOHO.embeddedApp.on("PageLoad", function(data) {
             console.log("Widget caricato", data);
             ZOHO_INITIALIZED = true;
+            QUOTE_ID = data.EntityId;
             
-            // Apri configuratore
-            apriConfiguratore();
+            // Carica dati e trova riga da modificare
+            loadQuoteAndOpenConfigurator();
         });
         
         ZOHO.embeddedApp.init();
         
-        // Apri configuratore in modalità edit
+        // Carica offerta e trova riga con flag Modifica=true
+        function loadQuoteAndOpenConfigurator() {
+            ZOHO.CRM.API.getRecord({
+                Entity: "Quotes",
+                RecordID: QUOTE_ID
+            }).then(function(response) {
+                console.log("Dati offerta:", response);
+                
+                if (response.data && response.data.length > 0) {
+                    const quote = response.data[0];
+                    const productDetails = quote.Product_Details || [];
+                    
+                    // Trova riga con Modifica=true
+                    const rigaDaModificare = productDetails.find(item => item.Modifica === true);
+                    
+                    if (!rigaDaModificare) {
+                        showError("Nessuna riga selezionata per la modifica. Seleziona una riga e riprova.");
+                        return;
+                    }
+                    
+                    PRODUCT_CODE = rigaDaModificare.Cod_Art_Forn;
+                    CONFIG_CODE = rigaDaModificare.Codice_Configurazione;
+                    
+                    if (!PRODUCT_CODE) {
+                        showError("Codice articolo mancante sulla riga selezionata");
+                        return;
+                    }
+                    
+                    // Apri configuratore
+                    apriConfiguratore();
+                }
+            }).catch(function(error) {
+                console.error("Errore:", error);
+                showError("Errore nel caricamento dell'offerta");
+            });
+        }
+        
+        // Apri configuratore in modalità modifica
         function apriConfiguratore() {
             document.getElementById('loading').style.display = 'block';
             
             const iframe = document.getElementById('configuratore-frame');
-            const url = `https://panta.orizzontiweb.it/ricerca-prodotti?edit=${CONFIG_CODE}&quote=${QUOTE_ID}`;
+            const url = `https://panta.orizzontiweb.it/product-configurator/${encodeURIComponent(PRODUCT_CODE)}?token=CRM${QUOTE_ID}&source=agente`;
             
             console.log("Apertura configuratore:", url);
             iframe.src = url;
@@ -148,6 +174,7 @@
             const errorDiv = document.getElementById('error');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
         }
     </script>
 </body>
